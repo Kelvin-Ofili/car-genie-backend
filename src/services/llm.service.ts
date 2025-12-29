@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
+import { LLMResponse } from "../models/chat.types";
 
 const openai = new OpenAI({
 	apiKey: env.OPENAI_API_KEY,
@@ -16,25 +17,49 @@ export class OpenAIQuotaError extends Error {
 	}
 }
 
-export async function generateLLMResponse(userMessage: string) {
+export async function generateLLMResponse(userMessage: string): Promise<LLMResponse> {
 	const prompt = `
 You are a car recommendation assistant.
 
 User request:
 "${userMessage}"
 
-Return ONLY valid JSON:
-{
-  "reply": string,
-  "cars": [
-    {
-      "id": string,
-      "name": string,
-      "price": number,
-      "color": string
-    }
-  ]
-}
+Analyze the user's request and respond appropriately with ONE of these response types:
+
+1. **car_recommendations**: When user wants specific car suggestions
+   Return JSON:
+   {
+     "responseType": "car_recommendations",
+     "reply": "brief intro message",
+     "cars": [
+       { "id": "unique-id", "name": "Car Name", "price": number, "color": "color" }
+     ]
+   }
+
+2. **advice**: When user needs general car buying advice, tips, or guidance
+   Return JSON:
+   {
+     "responseType": "advice",
+     "reply": "your advice message",
+     "advice": ["tip 1", "tip 2"]
+   }
+
+3. **clarification**: When you need more information from the user
+   Return JSON:
+   {
+     "responseType": "clarification",
+     "reply": "your clarification message",
+     "questions": ["question 1", "question 2"]
+   }
+
+4. **general**: For greetings, corrections, or general conversation
+   Return JSON:
+   {
+     "responseType": "general",
+     "reply": "your response"
+   }
+
+Return ONLY valid JSON matching one of these structures.
 `;
 
 	try {
@@ -42,7 +67,6 @@ Return ONLY valid JSON:
 			model: "gpt-4o-mini",
 			messages: [{ role: "user", content: prompt }],
 			temperature: 0.3,
-			// Ask OpenAI to return strict JSON so parsing is reliable
 			response_format: { type: "json_object" },
 		});
 
@@ -51,9 +75,15 @@ Return ONLY valid JSON:
 			throw new Error("OpenAI response contained no content");
 		}
 
-		return JSON.parse(content);
+		const parsed = JSON.parse(content) as LLMResponse;
+		
+		// Validate response structure
+		if (!parsed.responseType || !parsed.reply) {
+			throw new Error("Invalid LLM response structure");
+		}
+
+		return parsed;
 	} catch (err) {
-		// If it's specifically an insufficient_quota / 429 error, signal this to the controller
 		const error = err as {
 			code?: string;
 			error?: { code?: string };
@@ -66,7 +96,6 @@ Return ONLY valid JSON:
 			throw new OpenAIQuotaError();
 		}
 
-		// Any other error still bubbles up so the controller can report it
 		throw err;
 	}
 }

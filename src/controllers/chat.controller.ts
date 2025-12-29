@@ -28,7 +28,10 @@ export const handleChat = async (req: Request, res: Response) => {
 				userId,
 				userMessage: message,
 				assistantReply: response.reply,
-				recommendations: response.recommendations,
+				responseType: response.responseType,
+				recommendations: response.recommendations ?? null,
+				advice: response.advice ?? null,
+				questions: response.questions ?? null,
 				confidence: response.confidence,
 				createdAt: new Date(),
 			});
@@ -40,27 +43,61 @@ export const handleChat = async (req: Request, res: Response) => {
 	} catch (err) {
 		console.error(err);
 		if (err instanceof OpenAIQuotaError) {
-			// Fallback: when OpenAI quota is exceeded, return mocked
-			// recommendations but keep the normal 200 flow so
-			// Firestore history and the UI still work in development.
-			const llmMock = {
-				reply:
-					"Here are some mocked car recommendations while the AI service is unavailable.",
-				cars: [
-					{
-						id: "mock-1",
-						name: "Toyota Camry",
-						price: 20400000,
-						color: "silver",
-					},
-					{
-						id: "mock-2",
-						name: "Honda CR-V",
-						price: 25500000,
-						color: "red",
-					},
-				],
-			};
+			// Fallback: when OpenAI quota is exceeded, return mocked responses
+			// Cycle through different response types to test all scenarios
+			const mockResponses = [
+				{
+					responseType: "car_recommendations" as const,
+					reply:
+						"Here are some mocked car recommendations while the AI service is unavailable.",
+					cars: [
+						{
+							id: "mock-1",
+							name: "Toyota Camry",
+							price: 20400000,
+							color: "silver",
+						},
+						{
+							id: "mock-2",
+							name: "Honda CR-V",
+							price: 25500000,
+							color: "red",
+						},
+					],
+				},
+				{
+					responseType: "advice" as const,
+					reply:
+						"Here's some general advice for buying a car in Nigeria:",
+					advice: [
+						"Always verify the vehicle documents before purchase",
+						"Get a trusted mechanic to inspect the car thoroughly",
+						"Check for spare parts availability in your area",
+						"Consider fuel efficiency for Nigerian roads",
+						"Negotiate the price - most dealers expect it",
+					],
+				},
+				{
+					responseType: "clarification" as const,
+					reply:
+						"I'd like to help you find the perfect car. Could you provide more details?",
+					questions: [
+						"What is your budget range?",
+						"Do you prefer manual or automatic transmission?",
+						"What will be the primary use - city driving or long trips?",
+						"How important is fuel efficiency to you?",
+					],
+				},
+				{
+					responseType: "general" as const,
+					reply:
+						"Hello! I'm your car recommendation assistant. I'm currently running in mock mode, but I can still help you explore different types of responses. Try asking for car recommendations, advice, or just chat with me!",
+				},
+			];
+
+			// Randomly select a mock response type
+			const llmMock =
+				mockResponses[Math.floor(Math.random() * mockResponses.length)];
 			const response = attachDealers(llmMock);
 
 			// Best-effort persistence even on quota fallback
@@ -73,7 +110,10 @@ export const handleChat = async (req: Request, res: Response) => {
 					userId,
 					userMessage: message,
 					assistantReply: response.reply,
-					recommendations: response.recommendations,
+					responseType: response.responseType,
+					recommendations: response.recommendations ?? null,
+					advice: response.advice ?? null,
+					questions: response.questions ?? null,
 					confidence: response.confidence,
 					createdAt: new Date(),
 				});
