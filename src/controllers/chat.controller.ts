@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import {
 	generateLLMResponse,
 	attachDealers,
-	OpenAIQuotaError,
+	GeminiQuotaError,
 } from "../services";
 import { db } from "../firebase";
 
@@ -17,6 +17,7 @@ export const handleChat = async (req: Request, res: Response) => {
 
 		const llmResult = await generateLLMResponse(message);
 		const response = attachDealers(llmResult);
+		console.log
 
 		// Best-effort persistence of chat history; don't fail the chat on DB errors
 		try {
@@ -42,8 +43,8 @@ export const handleChat = async (req: Request, res: Response) => {
 		res.json(response);
 	} catch (err) {
 		console.error(err);
-		if (err instanceof OpenAIQuotaError) {
-			// Fallback: when OpenAI quota is exceeded, return mocked responses
+		if (err instanceof GeminiQuotaError) {
+			// Fallback: when Gemini quota is exceeded, return mocked responses
 			// Cycle through different response types to test all scenarios
 			const mockResponses = [
 				{

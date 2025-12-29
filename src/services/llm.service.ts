@@ -1,19 +1,17 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI  } from "@google/generative-ai";
 import { env } from "../config/env";
 import { LLMResponse } from "../models/chat.types";
 
-const openai = new OpenAI({
-	apiKey: env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI (env.GEMINI_API_KEY);
 
 // Custom error so the controller can turn quota issues into a 429
-export class OpenAIQuotaError extends Error {
+export class GeminiQuotaError extends Error {
 	status = 429;
 	code = "insufficient_quota";
 
-	constructor(message = "OpenAI quota exceeded") {
+	constructor(message = "Gemini quota exceeded") {
 		super(message);
-		this.name = "OpenAIQuotaError";
+		this.name = "GeminiQuotaError";
 	}
 }
 
@@ -63,16 +61,21 @@ Return ONLY valid JSON matching one of these structures.
 `;
 
 	try {
-		const response = await openai.chat.completions.create({
-			model: "gpt-4o-mini",
-			messages: [{ role: "user", content: prompt }],
-			temperature: 0.3,
-			response_format: { type: "json_object" },
+		const model = genAI.getGenerativeModel({ 
+			model: "gemini-2.5-flash",
+			generationConfig: {
+				responseMimeType: "application/json",
+				temperature: 0.3,
+			}
 		});
 
-		const content = response.choices[0].message.content;
+		const result = await model.generateContent(prompt);
+		const response = result.response;
+		console.log("Gemini raw response:", response);
+		const content = response.text();
+		console.log("Gemini content:", content);
 		if (!content) {
-			throw new Error("OpenAI response contained no content");
+			throw new Error("Gemini response contained no content");
 		}
 
 		const parsed = JSON.parse(content) as LLMResponse;
@@ -88,12 +91,21 @@ Return ONLY valid JSON matching one of these structures.
 			code?: string;
 			error?: { code?: string };
 			status?: number;
+			message?: string;
 		};
 		const code = error?.code ?? error?.error?.code;
 		const status = error?.status;
-		if (code === "insufficient_quota" || status === 429) {
-			console.warn("OpenAI quota exceeded.");
-			throw new OpenAIQuotaError();
+		const message = error?.message?.toLowerCase() || "";
+		
+		// Check for quota/rate limit errors
+		if (
+			code === "insufficient_quota" || 
+			status === 429 ||
+			message.includes("quota") ||
+			message.includes("rate limit")
+		) {
+			console.warn("Gemini quota exceeded.");
+			throw new GeminiQuotaError();
 		}
 
 		throw err;
