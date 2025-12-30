@@ -5,7 +5,10 @@ import chatRoutes from "./routes/chat.routes";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:5173', // Your Vite dev server
+    credentials: true
+}));
 app.use(express.json());
 
 app.use("/chat", chatRoutes);

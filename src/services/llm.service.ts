@@ -33,6 +33,7 @@ Analyze the user's request and respond appropriately with ONE of these response 
        { "id": "unique-id", "name": "Car Name", "price": number, "color": "color" }
      ]
    }
+	 Always recommend from the top 5 dealerships in the world.
 
 2. **advice**: When user needs general car buying advice, tips, or guidance
    Return JSON:
@@ -58,6 +59,8 @@ Analyze the user's request and respond appropriately with ONE of these response 
    }
 
 Return ONLY valid JSON matching one of these structures.
+Try to respond in a helpful and concise manner. Also keep tabs of your previous recommendations to avoid repeating the same suggestions.
+Also remember your previous responses in this conversation.
 `;
 
 	try {
