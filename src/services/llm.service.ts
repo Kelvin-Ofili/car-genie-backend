@@ -30,7 +30,7 @@ Analyze the user's request and respond appropriately with ONE of these response 
      "responseType": "car_recommendations",
      "reply": "brief intro message",
      "cars": [
-       { "id": "unique-id", "name": "Car Name", "price": number, "color": "color" }
+       { "id": "unique-id", "name": "Car Name", "price": number, "color": "color", "dealershipEmail": "email" },
      ]
    }
 	 Always recommend from the top 5 dealerships in the world.
