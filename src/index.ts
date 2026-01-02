@@ -13,7 +13,9 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-    origin: 'http://localhost:5173', // Your Vite dev server
+    origin: process.env.FRONTEND_URL 
+        ? [process.env.FRONTEND_URL, `https://www.${process.env.FRONTEND_URL.replace('https://', '')}`]
+        : 'http://localhost:5173',
     credentials: true
 }));
 app.use(express.json());
