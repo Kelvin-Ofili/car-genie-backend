@@ -17,7 +17,6 @@ export const handleChat = async (req: Request, res: Response) => {
 
 		const llmResult = await generateLLMResponse(message);
 		const response = attachDealers(llmResult);
-		console.log
 
 		// Best-effort persistence of chat history; don't fail the chat on DB errors
 		try {
