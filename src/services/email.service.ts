@@ -1,26 +1,9 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { env } from "../config/env";
 
-// Create email transporter using Gmail with connection pooling and retry
-const transporter = nodemailer.createTransport({
-	host: "smtp.gmail.com",
-	port: 587,
-	secure: false, // Use STARTTLS
-	auth: {
-		user: env.EMAIL_USER,
-		pass: env.EMAIL_APP_PASSWORD,
-	},
-	pool: true, // Use connection pooling
-	maxConnections: 5,
-	maxMessages: 10,
-	rateDelta: 1000, // 1 second between messages
-	rateLimit: 5, // Max 5 messages per rateDelta
-	tls: {
-		rejectUnauthorized: false,
-	},
-	connectionTimeout: 10000, // 10 second timeout
-	greetingTimeout: 10000,
-});
+// Use Resend for production (works on Render)
+// Falls back to console logging if no API key
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 export interface SendEmailRequest {
 	dealerEmail: string;
@@ -44,8 +27,8 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	// For testing, send to test recipient; in production, send to actual dealer
 	const recipientEmail = env.TEST_RECIPIENT_EMAIL || dealerEmail;
 
-	// Email template
-	const emailContent = `
+	// Email HTML template
+	const emailHtml = `
 		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
 			<h2 style="color: #2563eb;">New Lead from CarGenie</h2>
 			<div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -73,28 +56,23 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 		</div>
 	`;
 
-	// Send email with retry logic
-	const mailOptions = {
-		from: `"CarGenie" <${env.EMAIL_USER}>`,
+	// Use Resend API if available, otherwise log
+	if (!resend) {
+		console.log("⚠️  No RESEND_API_KEY - Email would be sent to:", recipientEmail);
+		console.log("Subject:", `New Lead: ${senderName} interested in ${carName}`);
+		return;
+	}
+
+	// Send via Resend
+	const result = await resend.emails.send({
+		from: `CarGenie <${env.EMAIL_USER}>`,
 		to: recipientEmail,
 		subject: `New Lead: ${senderName} interested in ${carName}`,
-		html: emailContent,
-		replyTo: senderEmail, // Allow dealer to reply directly to customer
-	};
+		html: emailHtml,
+		replyTo: senderEmail,
+	});
 
-	// Retry logic for transient failures
-	const maxRetries = 3;
-	for (let attempt = 1; attempt <= maxRetries; attempt++) {
-		try {
-			await transporter.sendMail(mailOptions);
-			return; // Success, exit function
-		} catch (error) {
-			console.error(`Email send attempt ${attempt}/${maxRetries} failed:`, error);
-			if (attempt === maxRetries) {
-				throw error; // Final attempt failed, throw error
-			}
-			// Wait before retry (exponential backoff)
-			await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-		}
+	if (result.error) {
+		throw new Error(result.error.message);
 	}
 }
