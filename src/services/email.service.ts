@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
 
-// Create email transporter using Gmail with explicit port 587 (STARTTLS)
+// Create email transporter using Gmail with connection pooling and retry
 const transporter = nodemailer.createTransport({
 	host: "smtp.gmail.com",
 	port: 587,
@@ -10,9 +10,16 @@ const transporter = nodemailer.createTransport({
 		user: env.EMAIL_USER,
 		pass: env.EMAIL_APP_PASSWORD,
 	},
+	pool: true, // Use connection pooling
+	maxConnections: 5,
+	maxMessages: 10,
+	rateDelta: 1000, // 1 second between messages
+	rateLimit: 5, // Max 5 messages per rateDelta
 	tls: {
-		rejectUnauthorized: false, // For development
+		rejectUnauthorized: false,
 	},
+	connectionTimeout: 10000, // 10 second timeout
+	greetingTimeout: 10000,
 });
 
 export interface SendEmailRequest {
@@ -66,7 +73,7 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 		</div>
 	`;
 
-	// Send email
+	// Send email with retry logic
 	const mailOptions = {
 		from: `"CarGenie" <${env.EMAIL_USER}>`,
 		to: recipientEmail,
@@ -75,5 +82,19 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 		replyTo: senderEmail, // Allow dealer to reply directly to customer
 	};
 
-	await transporter.sendMail(mailOptions);
+	// Retry logic for transient failures
+	const maxRetries = 3;
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		try {
+			await transporter.sendMail(mailOptions);
+			return; // Success, exit function
+		} catch (error) {
+			console.error(`Email send attempt ${attempt}/${maxRetries} failed:`, error);
+			if (attempt === maxRetries) {
+				throw error; // Final attempt failed, throw error
+			}
+			// Wait before retry (exponential backoff)
+			await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+		}
+	}
 }
