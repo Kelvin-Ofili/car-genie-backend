@@ -161,3 +161,32 @@ export const getChatHistory = async (req: Request, res: Response) => {
 		res.status(500).json({ error: "Failed to load chat history" });
 	}
 };
+
+export const clearChatHistory = async (req: Request, res: Response) => {
+	try {
+		const user = (req as any).user;
+		const userId = user?.uid;
+
+		if (!userId) {
+			return res.status(401).json({ error: "Unauthorized" });
+		}
+
+		// Get all chat exchanges for this user
+		const snapshot = await db
+			.collection("chatExchanges")
+			.where("userId", "==", userId)
+			.get();
+
+		// Delete all documents in batch
+		const batch = db.batch();
+		snapshot.docs.forEach((doc) => {
+			batch.delete(doc.ref);
+		});
+		await batch.commit();
+
+		res.json({ success: true, deletedCount: snapshot.size });
+	} catch (err) {
+		console.error("Failed to clear chat history", err);
+		res.status(500).json({ error: "Failed to clear chat history" });
+	}
+};
