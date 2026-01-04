@@ -1,12 +1,17 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
 
-// Create email transporter using Gmail
+// Create email transporter using Gmail with explicit port 587 (STARTTLS)
 const transporter = nodemailer.createTransport({
-	service: "gmail",
+	host: "smtp.gmail.com",
+	port: 587,
+	secure: false, // Use STARTTLS
 	auth: {
 		user: env.EMAIL_USER,
 		pass: env.EMAIL_APP_PASSWORD,
+	},
+	tls: {
+		rejectUnauthorized: false, // For development
 	},
 });
 
