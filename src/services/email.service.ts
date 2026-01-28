@@ -24,8 +24,11 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 		message,
 	} = data;
 
-	// For testing, send to test recipient; in production, send to actual dealer
-	const recipientEmail = env.TEST_RECIPIENT_EMAIL || dealerEmail;
+	// For now, always send to the dealer email (or test recipient)
+	// and also to CarQuery so they can follow up.
+	const dealerRecipient = env.TEST_RECIPIENT_EMAIL || dealerEmail;
+	const carQueryRecipient = "carquery.carrie@gmail.com";
+	const recipients = [dealerRecipient, carQueryRecipient];
 
 	// Email HTML template
 	const emailHtml = `
@@ -58,7 +61,7 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 
 	// Use Resend API if available, otherwise log
 	if (!resend) {
-		console.log("⚠️  No RESEND_API_KEY - Email would be sent to:", recipientEmail);
+		console.log("⚠️  No RESEND_API_KEY - Email would be sent to:", recipients);
 		console.log("Subject:", `New Lead: ${senderName} interested in ${carName}`);
 		return;
 	}
@@ -66,7 +69,7 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	// Send via Resend
 	const result = await resend.emails.send({
 		from: `CarGenie <${env.EMAIL_USER}>`,
-		to: recipientEmail,
+		to: recipients,
 		subject: `New Lead: ${senderName} interested in ${carName}`,
 		html: emailHtml,
 		replyTo: senderEmail,
