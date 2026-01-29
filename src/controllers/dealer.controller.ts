@@ -228,3 +228,86 @@ export const rejectDealerApplication = async (req: Request, res: Response) => {
 		res.status(500).json({ error: "Failed to reject application" });
 	}
 };
+
+export const testDatabaseConnection = async (req: Request, res: Response) => {
+	try {
+		const { dbHost, dbPort, dbName, dbUser, dbPassword } = req.body;
+
+		// Validation
+		if (!dbHost || !dbPort || !dbName || !dbUser || !dbPassword) {
+			return res.status(400).json({
+				success: false,
+				error: "Missing required database connection parameters",
+			});
+		}
+
+		// Dynamically import mysql2 to test connection
+		// Note: You'll need to install mysql2: npm install mysql2
+		const mysql = await import("mysql2/promise");
+
+		try {
+			// Attempt to create a connection
+			const connection = await mysql.createConnection({
+				host: dbHost,
+				port: parseInt(dbPort),
+				database: dbName,
+				user: dbUser,
+				password: dbPassword,
+				connectTimeout: 10000, // 10 second timeout
+			});
+
+			// Test a simple query
+			const [rows] = await connection.execute("SELECT 1 as test");
+
+			// Try to query a vehicles table (common for dealerships)
+			let tableCheck = null;
+			try {
+				const [tables] = await connection.execute(
+					"SHOW TABLES LIKE 'vehicles'"
+				);
+				tableCheck = (tables as any[]).length > 0 ? "vehicles table found" : "no vehicles table found";
+			} catch (tableErr) {
+				tableCheck = "could not check for tables";
+			}
+
+			await connection.end();
+
+			res.json({
+				success: true,
+				message: "Database connection successful!",
+				details: {
+					host: dbHost,
+					database: dbName,
+					tableCheck,
+				},
+			});
+		} catch (dbErr: any) {
+			// Connection failed
+			let errorMessage = "Failed to connect to database";
+			
+			if (dbErr.code === "ECONNREFUSED") {
+				errorMessage = "Connection refused. Check if the database server is running and accessible.";
+			} else if (dbErr.code === "ER_ACCESS_DENIED_ERROR") {
+				errorMessage = "Access denied. Check your username and password.";
+			} else if (dbErr.code === "ER_BAD_DB_ERROR") {
+				errorMessage = "Database does not exist. Check the database name.";
+			} else if (dbErr.code === "ETIMEDOUT") {
+				errorMessage = "Connection timeout. Check firewall settings and network access.";
+			} else if (dbErr.message) {
+				errorMessage = dbErr.message;
+			}
+
+			res.status(400).json({
+				success: false,
+				error: errorMessage,
+				code: dbErr.code,
+			});
+		}
+	} catch (err) {
+		console.error("Error testing database connection:", err);
+		res.status(500).json({
+			success: false,
+			error: "Internal server error while testing connection",
+		});
+	}
+};
