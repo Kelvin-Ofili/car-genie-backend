@@ -30,9 +30,9 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	const carQueryRecipient = "carquery.carrie@gmail.com";
 	
 	// Always include both recipients (filter out duplicates)
-	const recipients = Array.from(new Set([dealerRecipient, carQueryRecipient]));
+	// const recipients = Array.from(new Set([dealerRecipient, carQueryRecipient]));
 	
-	console.log("📧 Sending email to:", recipients);
+	console.log("📧 Sending email to:", dealerRecipient);
 
 	// Email HTML template
 	const emailHtml = `
@@ -65,7 +65,7 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 
 	// Use Resend API if available, otherwise log
 	if (!resend) {
-		console.log("⚠️  No RESEND_API_KEY - Email would be sent to:", recipients);
+		console.log("⚠️  No RESEND_API_KEY - Email would be sent to:", dealerRecipient);
 		console.log("Subject:", `New Lead: ${senderName} interested in ${carName}`);
 		return;
 	}
@@ -73,7 +73,7 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	// Send via Resend
 	const result = await resend.emails.send({
 		from: `CarGenie <${env.EMAIL_USER}>`,
-		to: recipients,
+		to: dealerRecipient,
 		subject: `New Lead: ${senderName} interested in ${carName}`,
 		html: emailHtml,
 		replyTo: senderEmail,
@@ -84,5 +84,5 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 		throw new Error(result.error.message);
 	}
 	
-	console.log("✅ Email sent successfully to:", recipients.length, "recipient(s)");
+	console.log("✅ Email sent successfully to:", dealerRecipient);
 }
