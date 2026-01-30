@@ -28,7 +28,11 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	// and also to CarQuery so they can follow up.
 	const dealerRecipient = env.TEST_RECIPIENT_EMAIL || dealerEmail;
 	const carQueryRecipient = "carquery.carrie@gmail.com";
-	const recipients = [dealerRecipient, carQueryRecipient];
+	
+	// Always include both recipients (filter out duplicates)
+	const recipients = Array.from(new Set([dealerRecipient, carQueryRecipient]));
+	
+	console.log("📧 Sending email to:", recipients);
 
 	// Email HTML template
 	const emailHtml = `
@@ -76,6 +80,9 @@ export async function sendDealerEmail(data: SendEmailRequest): Promise<void> {
 	});
 
 	if (result.error) {
+		console.error("❌ Resend error:", result.error);
 		throw new Error(result.error.message);
 	}
+	
+	console.log("✅ Email sent successfully to:", recipients.length, "recipient(s)");
 }
