@@ -15,13 +15,38 @@ export const handleChat = async (req: Request, res: Response) => {
 			return res.status(400).json({ error: "Message is required" });
 		}
 
-		const llmResult = await generateLLMResponse(message);
+		// Fetch recent conversation history for context (last 10 messages)
+		const user = (req as any).user;
+		const userId = user?.uid ?? "anonymous";
+		let conversationHistory: Array<{sender: "user" | "assistant"; message: string}> = [];
+
+		try {
+			const snapshot = await db
+				.collection("chatExchanges")
+				.where("userId", "==", userId)
+				.orderBy("createdAt", "desc")
+				.limit(10)
+				.get();
+
+			// Build conversation history in chronological order (oldest first)
+			conversationHistory = snapshot.docs
+				.reverse()
+				.flatMap((doc) => {
+					const data = doc.data();
+					return [
+						{ sender: "user" as const, message: data.userMessage },
+						{ sender: "assistant" as const, message: data.assistantReply },
+					];
+				});
+		} catch (historyErr) {
+			console.warn("Failed to fetch conversation history, continuing without context", historyErr);
+		}
+
+		const llmResult = await generateLLMResponse(message, conversationHistory);
 		const response = attachDealers(llmResult);
 
 		// Best-effort persistence of chat history; don't fail the chat on DB errors
 		try {
-			const user = (req as any).user;
-			const userId = user?.uid ?? "anonymous";
 			const exchangesRef = db.collection("chatExchanges");
 
 			await exchangesRef.add({
