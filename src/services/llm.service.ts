@@ -15,10 +15,30 @@ export class GeminiQuotaError extends Error {
 	}
 }
 
-export async function generateLLMResponse(userMessage: string): Promise<LLMResponse> {
+interface ChatMessage {
+	sender: "user" | "assistant";
+	message: string;
+	timestamp?: Date;
+}
+
+export async function generateLLMResponse(
+	userMessage: string,
+	conversationHistory: ChatMessage[] = []
+): Promise<LLMResponse> {
+	// Build conversation context from history
+	let conversationContext = "";
+	if (conversationHistory.length > 0) {
+		conversationContext = "\n\nPrevious conversation:\n";
+		for (const msg of conversationHistory) {
+			const role = msg.sender === "user" ? "User" : "Assistant";
+			conversationContext += `${role}: ${msg.message}\n`;
+		}
+		conversationContext += "\n";
+	}
+
 	const prompt = `
 You are a car recommendation assistant.
-
+${conversationContext}
 User request:
 "${userMessage}"
 
@@ -62,7 +82,6 @@ Return ONLY valid JSON matching one of these structures.
 Try to respond in a helpful and concise manner. Also keep tabs of your previous recommendations to avoid repeating the same suggestions.
 Also remember your previous responses in this conversation.
 `;
-
 	try {
 		const model = genAI.getGenerativeModel({ 
 			model: "gemini-2.5-flash",

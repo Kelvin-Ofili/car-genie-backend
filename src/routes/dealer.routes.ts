@@ -7,6 +7,7 @@ import {
 	testDatabaseConnection,
 } from "../controllers/dealer.controller";
 import { rateLimiter } from "../middleware/rateLimiter";
+import { verifyAdminToken } from "../middleware/adminAuth";
 
 const router = Router();
 
@@ -24,9 +25,9 @@ router.post(
 	testDatabaseConnection
 );
 
-// Admin routes - TODO: Add admin authentication middleware
-router.get("/applications", getDealerApplications);
-router.post("/applications/:applicationId/approve", approveDealerApplication);
-router.post("/applications/:applicationId/reject", rejectDealerApplication);
+// Admin routes - Protected with admin authentication
+router.get("/applications", verifyAdminToken, getDealerApplications);
+router.post("/applications/:applicationId/approve", verifyAdminToken, approveDealerApplication);
+router.post("/applications/:applicationId/reject", verifyAdminToken, rejectDealerApplication);
 
 export default router;
