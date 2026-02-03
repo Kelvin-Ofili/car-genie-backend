@@ -8,8 +8,12 @@ import {
 	getUserClaims,
 	listAdminUsers,
 } from "../services/admin.service";
+import { auth } from "../firebase";
 
 const router = Router();
+
+// Debug: Log that routes are being registered
+console.log("🔧 Admin routes module loaded");
 
 /**
  * Grant admin role to a user
@@ -113,6 +117,43 @@ router.get("/me/claims", verifyFirebaseToken, async (req: Request, res: Response
 });
 
 /**
+ * Grant admin role to a user by email
+ * Requires: Current user must be admin
+ * Body: { email: string }
+ */
+router.post("/grant-by-email", verifyAdminToken, async (req: Request, res: Response) => {
+	console.log("📧 /grant-by-email route hit with body:", req.body);
+	try {
+		const { email } = req.body;
+
+		if (!email) {
+			return res.status(400).json({ error: "Email is required" });
+		}
+
+		// Look up user by email
+		let userRecord;
+		try {
+			userRecord = await auth.getUserByEmail(email);
+		} catch (err) {
+			return res.status(404).json({ error: `No user found with email: ${email}` });
+		}
+
+		// Grant admin role
+		await setAdminRole(userRecord.uid);
+
+		res.json({
+			success: true,
+			message: `Admin role granted to ${email}`,
+			uid: userRecord.uid,
+		});
+	} catch (err) {
+		console.error("Error granting admin role by email:", err);
+		const errorMessage = err instanceof Error ? err.message : "Failed to grant admin role";
+		res.status(500).json({ error: errorMessage });
+	}
+});
+
+/**
  * List all admin users
  * Requires: Admin role
  */
@@ -129,5 +170,7 @@ router.get("/list", verifyAdminToken, async (req: Request, res: Response) => {
 		res.status(500).json({ error: "Failed to list admin users" });
 	}
 });
+
+console.log("✅ Admin routes registered: /grant, /revoke, /check, /me/claims, /grant-by-email, /list");
 
 export default router;

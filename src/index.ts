@@ -8,12 +8,6 @@ import adminRoutes from "./routes/admin.routes";
 
 const app = express();
 
-// Add request logging middleware
-app.use((req, res, next) => {
-	console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-	next();
-});
-
 app.use(cors({
     origin: process.env.FRONTEND_URL 
         ? [
@@ -27,10 +21,17 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Add request logging middleware (after body parser)
+app.use((req, res, next) => {
+	console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+	console.log("Body:", req.body);
+	next();
+});
+
 app.use("/chat", chatRoutes);
 app.use(emailRoutes); // Mount at root so /send-email works directly
-app.use("/api/dealers", dealerRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/dealers", dealerRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/health", (_, res) => {
 	res.json({ status: "ok" });
