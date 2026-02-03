@@ -134,7 +134,6 @@ export const onboardDealer = async (req: Request, res: Response) => {
 
 export const getDealerApplications = async (req: Request, res: Response) => {
 	try {
-		// TODO: Add admin authentication middleware
 		const status = req.query.status as string;
 
 		let query = db.collection("dealerApplications");
@@ -167,7 +166,6 @@ export const approveDealerApplication = async (
 	res: Response
 ) => {
 	try {
-		// TODO: Add admin authentication middleware
 		const { applicationId } = req.params;
 
 		const appRef = db.collection("dealerApplications").doc(applicationId);
@@ -200,7 +198,6 @@ export const approveDealerApplication = async (
 
 export const rejectDealerApplication = async (req: Request, res: Response) => {
 	try {
-		// TODO: Add admin authentication middleware
 		const { applicationId } = req.params;
 		const { reason } = req.body;
 

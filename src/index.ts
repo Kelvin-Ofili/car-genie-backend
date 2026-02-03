@@ -4,6 +4,7 @@ import { env } from "./config/env";
 import chatRoutes from "./routes/chat.routes";
 import emailRoutes from "./routes/email.routes";
 import dealerRoutes from "./routes/dealer.routes";
+import adminRoutes from "./routes/admin.routes";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.json());
 app.use("/chat", chatRoutes);
 app.use(emailRoutes); // Mount at root so /send-email works directly
 app.use("/api/dealers", dealerRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/health", (_, res) => {
 	res.json({ status: "ok" });
