@@ -8,5 +8,6 @@ export const env = {
 	EMAIL_APP_PASSWORD: process.env.EMAIL_APP_PASSWORD,
 	TEST_RECIPIENT_EMAIL: process.env.TEST_RECIPIENT_EMAIL,
 	RESEND_API_KEY: process.env.RESEND_API_KEY,
-	DB_ENCRYPTION_KEY: process.env.DB_ENCRYPTION_KEY
+	DB_ENCRYPTION_KEY: process.env.DB_ENCRYPTION_KEY,
+	FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
 };

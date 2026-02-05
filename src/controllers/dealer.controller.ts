@@ -6,6 +6,8 @@ import type {
 } from "../models/dealer.types";
 import crypto from "crypto";
 import { env } from "../config/env";
+import { sendDealerApplicationConfirmation, sendDealerApprovalEmail, sendDealerRejectionEmail } from "../services/email.service";
+import { createDealerUser, moveToDealersCollection } from "../services/dealer.service";
 
 // Simple encryption for DB passwords (use a proper KMS in production)
 const ENCRYPTION_KEY = env.DB_ENCRYPTION_KEY || "";
@@ -115,8 +117,17 @@ export const onboardDealer = async (req: Request, res: Response) => {
 
 		const docRef = await db.collection("dealerApplications").add(application);
 
-		// TODO: Send email notification to admin
-		// TODO: Send confirmation email to dealer
+		// Send confirmation email to dealer
+		try {
+			await sendDealerApplicationConfirmation({
+				dealerEmail: body.email,
+				dealerName: body.contactName,
+				dealershipName: body.dealershipName,
+			});
+		} catch (emailErr) {
+			console.error("Failed to send confirmation email:", emailErr);
+			// Don't fail the request if email fails
+		}
 
 		res.status(201).json({
 			success: true,
@@ -177,18 +188,52 @@ export const approveDealerApplication = async (
 
 		const appData = appDoc.data() as DealerApplication;
 
-		// TODO: Create Firebase user with custom claims
-		// TODO: Move to dealers collection
-		// TODO: Send approval email with login credentials
+		// 1. Create Firebase user with dealer role
+		let userCredentials;
+		try {
+			userCredentials = await createDealerUser(appData.email, appData.contactName);
+		} catch (userErr) {
+			console.error("Failed to create dealer user:", userErr);
+			return res.status(500).json({ 
+				error: "Failed to create dealer account. Please try again." 
+			});
+		}
 
+		// 2. Move application to dealers collection
+		try {
+			await moveToDealersCollection(applicationId, appData, userCredentials.uid);
+		} catch (moveErr) {
+			console.error("Failed to move to dealers collection:", moveErr);
+			return res.status(500).json({ 
+				error: "Failed to complete dealer setup. Please contact support." 
+			});
+		}
+
+		// 3. Update application status
 		await appRef.update({
 			status: "approved",
 			updatedAt: new Date(),
+			userId: userCredentials.uid,
 		});
+
+		// 4. Send approval email with login credentials
+		try {
+			await sendDealerApprovalEmail({
+				dealerEmail: appData.email,
+				dealerName: appData.contactName,
+				dealershipName: appData.dealershipName,
+				loginEmail: appData.email,
+				temporaryPassword: userCredentials.tempPassword,
+			});
+		} catch (emailErr) {
+			console.error("Failed to send approval email:", emailErr);
+			// Don't fail the request if email fails - dealer account is created
+		}
 
 		res.json({
 			success: true,
 			message: "Dealer application approved",
+			userId: userCredentials.uid,
 		});
 	} catch (err) {
 		console.error("Error approving dealer application:", err);
