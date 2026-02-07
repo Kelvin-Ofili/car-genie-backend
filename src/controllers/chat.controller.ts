@@ -21,9 +21,11 @@ export const handleChat = async (req: Request, res: Response) => {
 		let conversationHistory: Array<{sender: "user" | "assistant"; message: string}> = [];
 
 		try {
+			// Use subcollection: users/{userId}/chats
 			const snapshot = await db
-				.collection("chatExchanges")
-				.where("userId", "==", userId)
+				.collection("users")
+				.doc(userId)
+				.collection("chats")
 				.orderBy("createdAt", "desc")
 				.limit(10)
 				.get();
@@ -47,10 +49,10 @@ export const handleChat = async (req: Request, res: Response) => {
 
 		// Best-effort persistence of chat history; don't fail the chat on DB errors
 		try {
-			const exchangesRef = db.collection("chatExchanges");
+			// Store in user's subcollection: users/{userId}/chats
+			const chatsRef = db.collection("users").doc(userId).collection("chats");
 
-			await exchangesRef.add({
-				userId,
+			await chatsRef.add({
 				userMessage: message,
 				assistantReply: response.reply,
 				responseType: response.responseType,
@@ -129,10 +131,9 @@ export const handleChat = async (req: Request, res: Response) => {
 			try {
 				const user = (req as any).user;
 				const userId = user?.uid ?? "anonymous";
-				const exchangesRef = db.collection("chatExchanges");
+				const chatsRef = db.collection("users").doc(userId).collection("chats");
 
-				await exchangesRef.add({
-					userId,
+				await chatsRef.add({
 					userMessage: message,
 					assistantReply: response.reply,
 					responseType: response.responseType,
@@ -167,18 +168,18 @@ export const getChatHistory = async (req: Request, res: Response) => {
 			return res.status(401).json({ error: "Unauthorized" });
 		}
 
+		// Get chats from user's subcollection
 		const snapshot = await db
-			.collection("chatExchanges")
-			.where("userId", "==", userId)
+			.collection("users")
+			.doc(userId)
+			.collection("chats")
+			.orderBy("createdAt", "asc")
 			.get();
 
-		const messages = snapshot.docs
-			.map((doc) => ({ id: doc.id, ...doc.data() }))
-			.sort((a, b) => {
-				const aTime = (a as any).createdAt?.toMillis?.() ?? 0;
-				const bTime = (b as any).createdAt?.toMillis?.() ?? 0;
-				return aTime - bTime;
-			});
+		const messages = snapshot.docs.map((doc) => ({ 
+			id: doc.id, 
+			...doc.data() 
+		}));
 
 		res.json({ messages });
 	} catch (err) {
@@ -196,10 +197,11 @@ export const clearChatHistory = async (req: Request, res: Response) => {
 			return res.status(401).json({ error: "Unauthorized" });
 		}
 
-		// Get all chat exchanges for this user
+		// Get all chats from user's subcollection
 		const snapshot = await db
-			.collection("chatExchanges")
-			.where("userId", "==", userId)
+			.collection("users")
+			.doc(userId)
+			.collection("chats")
 			.get();
 
 		// Delete all documents in batch

@@ -153,17 +153,26 @@ export const getDealerApplications = async (req: Request, res: Response) => {
 			query = query.where("status", "==", status) as any;
 		}
 
-		const snapshot = await query.orderBy("createdAt", "desc").get();
+		// Fetch without orderBy to avoid index requirement
+		// Sort in memory instead (temporary until Firestore index is created)
+		const snapshot = await query.get();
 
-		const applications = snapshot.docs.map((doc) => ({
-			id: doc.id,
-			...doc.data(),
-			// Don't send encrypted password to frontend
-			dbConnection: {
-				...((doc.data() as any).dbConnection || {}),
-				password: "[ENCRYPTED]",
-			},
-		}));
+		const applications = snapshot.docs
+			.map((doc) => ({
+				id: doc.id,
+				...doc.data(),
+				// Don't send encrypted password to frontend
+				dbConnection: {
+					...((doc.data() as any).dbConnection || {}),
+					password: "[ENCRYPTED]",
+				},
+			}))
+			// Sort by createdAt in memory
+			.sort((a: any, b: any) => {
+				const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+				const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+				return dateB.getTime() - dateA.getTime(); // Descending order
+			});
 
 		res.json({ applications });
 	} catch (err) {
